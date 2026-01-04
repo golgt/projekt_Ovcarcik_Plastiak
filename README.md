@@ -70,13 +70,28 @@ ELT -- Extract, Load, Transform -- je proces v Snowflake ktorý zahŕňa načít
 ---
 ### **3.1 Extract (Extrahovanie dát)**
 
-Exhtrahovanie (Extract) dáta sa získavajú z rôznych zdrojov ako napríklad databázy, súbory, rôzne datasety...
+Exhtrahovanie (Extract) - dáta sa získavajú z rôznych zdrojov ako napríklad databázy, súbory, rôzne datasety... <br>
 Keďže náš zdroj je Snowflake marketplace tak sme museli v marketplace dať „subscribe“ na dataset aby sme mohli s databázou pracovať. Následne sa vytvoril secure share dát čo znamená že dáta máme logicky dostupné, ale fyzicky ostali u poskytovaťeľa v tomto prípade FactSet.
-Ako ďalší krok sme si vytvorili staging tabuľky do ktorých sme načítali dáta z datasetu FactSet Analytics.
+
+---
+### **3.2 Load (Načítanie dát)**
+
+Load (načítanie) - surové, netransformované dáta sa načítajú priamo do úložnej vrstvy Snowflake, často pomocou príkazov COPY alebo Snowpipe na streamovanie, čím sa okamžite sprístupnia.
 
 **Príklad kódu:**
 ```sql
-CREATE OR REPLACE TABLE table_staging AS
-SELECT * FROM marketplace_db.schema.source_table;
+CREATE OR REPLACE TABLE  pa_metadata_staging AS 
+SELECT * FROM factset_analytics_sample.fds.pa_metadata;
 ```
+
+Po vytvorení tabuľky sme si hňed aj kontrolovali či nám to správne načítalo dáta do tabuľky pomocou:
+
+```sql
+SELECT * FROM pa_metadata_staging LIMIT 15;;
+```
+
+---
+
+
+
 
