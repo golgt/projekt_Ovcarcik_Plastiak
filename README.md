@@ -38,3 +38,18 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na ent
 ---
 ## **2. Dimenzionálny model**
 
+---
+## **3. ELT proces v Snowflake**
+
+ELT -- Extract, Load, Transform -- je proces v Snowflake ktorý zahŕňa načítavanie survých dát priamo do cloudového dátového skladu. Po načítaní do skladu sa použijú výkonné a škálovateľné výpočty Snowflake na vykonanie transformácií v rámci skladu. Na rozdiel od tradičného ELT, ktoré dáta pred načítaním transformuje, využíva oddelenie úložiska a výpočtov pre efektívnosť, vďaka čomu je ELT ideálny na efektívne spracovanie veľkých a rozmanitých súborov údajov. Snowflake v ELT vyniká a používa nástroje ako **Snowpipe** na prijímanie dát, **Streams** pre CDC (Change Data Capture), **Tasks** na plánovanie a **SQL/Python** na transformácie čo z neho robí moderný a nákladovo efektívny prístup v porovnaní so staršími metódami ELT.
+
+### **Kľúčové výhody ELT so Snowflake**
+
+- **Škálovatelnosť a výkon** -- Oddelené úložisko a výpočtové kapacity Snowflake umožňujú  masívne škálovanie transformačných úloh na požiadanie.
+- **Flexibilita** -- Nespracované dáta sú vždy k dispozícií, čo umožňuje iteratívne transformácie podľa meniacich sa obchodných potrieb, na rozdiel od ELT, ktoré uzamyká transformácie v predstihu.
+- **Cenová efektívnosť** -- Platí sa iba za výpočtové kapacity použité počas transformácií s možnosťou škálovania, keď nie sú potrebné.
+- **Jednoduchosť** -- Eliminuje zložité transformačné kanály s predbežným načítaním, čím zefektívňuje presun dát.  
+
+---
+### **3.1 Extract (Extrahovanie dát)**
+
