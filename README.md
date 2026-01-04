@@ -1,5 +1,6 @@
 # **ELT proces datasetu FactSet Analytics (sample)**
 
+V tomto repozitári sa nachádza implementácia ELT procesu v Snowflake a vytvorenie dátového skladu so schémou Star schema. V projekte pracujeme s **FactSet Analytics (sample)** datasetom ktorý je voľne dostupný na Snowflake marketplace. Projekt je analytická databáza na výkonnostnú analýzu investičných portfólií (performance, attribution, exposure) voči benchmarkom – pre akcie (EQ) aj dlhopisy (FI). Výsledný dátový model umožnuje multidimenzionálnu analýzu a vyzualizáciu kľúčových metrik.  
 
 ---
 ## **1. Úvod a popis zdrojových dát**
@@ -30,7 +31,7 @@ Zdrojové dáta pochádzajú z Snowflake datasetu dostupného [tu](https://app.s
 Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na entitno-relačnom diagrame (ERD):
 
 <p align="center">
-  <img width="1333" height="1329" alt="ERD" src="https://github.com/user-attachments/assets/98b5f7e2-85f7-4551-98b8-e78a93c32fa6" />
+  <img width="1333" height="1329" alt="ERD" src="https://github.com/user-attachments/assets/98b5f7e2-85f7-4551-98b8-e78a93c32fa6" alt="ERD Schéma"/>
   <br>
   <em>Obrázok 1 Entitno-relačná schéma FactSet Analytics</em>
 </p>
@@ -38,18 +39,22 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na ent
 ---
 ## **2. Dimenzionálny model**
 
-V projekte bola navrhnutá schéma hviezdy (star schema) podľa Kimballovej metodológie, ktorá obsahuje jednu faktovú tabuľku Fact_table, prepojenú s viacerými dimenzionálnymi tabuľkami. Tento model umožňuje efektívnu analytiku výkonnosti, expozícií a atribúcie finančných portfólií.
+V projekte bola navrhnutá schéma hviezdy (star schema) podľa Kimballovej metodológie, ktorá obsahuje jednu faktovú tabuľku `Fact_table`, prepojenú s viacerými dimenzionálnymi tabuľkami. Tento model umožňuje efektívnu analytiku výkonnosti, expozícií a atribúcie finančných portfólií.
 Faktová tabuľka je prepojená s nasledujúcimi dimenziami:
-- dim_account - Obsahuje základné informácie o investičných účtoch a portfóliách, ako sú identifikátor účtu, názov účtu, základná mena, benchmark a dátum vzniku portfólia. Táto dimenzia umožňuje analyzovať výkonnosť podľa jednotlivých portfólií.
-- dim_date - Zahŕňa kalendárne informácie o dátumoch, ku ktorým sa viažu jednotlivé metriky, ako sú deň, mesiac, rok a štvrťrok. Dimenzia umožňuje časové analýzy a sledovanie vývoja výkonnosti v čase.
-- dim_asset_class - Obsahuje informácie o triede aktív, napríklad akcie (EQ) alebo dlhopisy (FI). Táto dimenzia umožňuje porovnávať výkonnosť a expozície medzi rôznymi typmi finančných nástrojov.
-- dim_sector - Obsahuje sektorové a hierarchické členenie investícií, vrátane názvu sektora, nadradeného sektora a úrovne v hierarchii. Dimenzia umožňuje sektorovú analýzu portfólia a benchmarku.
-- dim_security - Obsahuje detailné informácie o jednotlivých cenných papieroch, ako sú názov, symbol a identifikátory cenných papierov. Táto dimenzia umožňuje analýzu výkonnosti na úrovni konkrétnych investícií.
-- dim_measure_type - Definuje typy meraných metrík, ako sú výnosy, váhy alebo atribučné efekty (napr. alokačný alebo selekčný efekt). Táto dimenzia určuje význam číselných hodnôt uložených vo faktovej tabuľke.
+- `dim_account` - Obsahuje základné informácie o investičných účtoch a portfóliách, ako sú identifikátor účtu, názov účtu, základná mena, benchmark a dátum vzniku portfólia. Táto dimenzia umožňuje analyzovať výkonnosť podľa jednotlivých portfólií.
+- `dim_date` - Zahŕňa kalendárne informácie o dátumoch, ku ktorým sa viažu jednotlivé metriky, ako sú deň, mesiac, rok a štvrťrok. Dimenzia umožňuje časové analýzy a sledovanie vývoja výkonnosti v čase.
+- `dim_asset_class` - Obsahuje informácie o triede aktív, napríklad akcie (EQ) alebo dlhopisy (FI). Táto dimenzia umožňuje porovnávať výkonnosť a expozície medzi rôznymi typmi finančných nástrojov.
+- `dim_sector` - Obsahuje sektorové a hierarchické členenie investícií, vrátane názvu sektora, nadradeného sektora a úrovne v hierarchii. Dimenzia umožňuje sektorovú analýzu portfólia a benchmarku.
+- `dim_security` - Obsahuje detailné informácie o jednotlivých cenných papieroch, ako sú názov, symbol a identifikátory cenných papierov. Táto dimenzia umožňuje analýzu výkonnosti na úrovni konkrétnych investícií.
+- `dim_measure_type` - Definuje typy meraných metrík, ako sú výnosy, váhy alebo atribučné efekty (napr. alokačný alebo selekčný efekt). Táto dimenzia určuje význam číselných hodnôt uložených vo faktovej tabuľke.
 
 Štruktúra hviezdicového modelu je znázornená na ER diagrame, ktorý zobrazuje prepojenia medzi faktovou tabuľkou a jednotlivými dimenziami. Takýto návrh zjednodušuje dotazovanie, zlepšuje výkon analytických dotazov a umožňuje flexibilné rozširovanie modelu o ďalšie metriky alebo dimenzie.
+<p align="center">
+  <img width="1073" height="714" alt="Star_scheme" src="https://github.com/user-attachments/assets/773ca867-9f16-41b9-9b7c-015b0f0f0def" alt="Star schéma" />
+  <br>
+  <em>Obrázok 2 Star schéma FactSet Analytics</em>
+</p>
 
-<img width="1073" height="714" alt="Star_scheme" src="https://github.com/user-attachments/assets/773ca867-9f16-41b9-9b7c-015b0f0f0def" />
 ---
 ## **3. ELT proces v Snowflake**
 
@@ -64,4 +69,29 @@ ELT -- Extract, Load, Transform -- je proces v Snowflake ktorý zahŕňa načít
 
 ---
 ### **3.1 Extract (Extrahovanie dát)**
+
+Exhtrahovanie (Extract) - dáta sa získavajú z rôznych zdrojov ako napríklad databázy, súbory, rôzne datasety... <br>
+Keďže náš zdroj je Snowflake marketplace tak sme museli v marketplace dať „subscribe“ na dataset aby sme mohli s databázou pracovať. Následne sa vytvoril secure share dát čo znamená že dáta máme logicky dostupné, ale fyzicky ostali u poskytovaťeľa v tomto prípade FactSet.
+
+---
+### **3.2 Load (Načítanie dát)**
+
+Load (načítanie) - surové, netransformované dáta sa načítajú priamo do úložnej vrstvy Snowflake, často pomocou príkazov COPY alebo Snowpipe na streamovanie, čím sa okamžite sprístupnia.
+
+**Príklad kódu:**
+```sql
+CREATE OR REPLACE TABLE  pa_metadata_staging AS 
+SELECT * FROM factset_analytics_sample.fds.pa_metadata;
+```
+
+Po vytvorení tabuľky sme si hňed aj kontrolovali či nám to správne načítalo dáta do tabuľky pomocou:
+
+```sql
+SELECT * FROM pa_metadata_staging LIMIT 15;;
+```
+
+---
+
+
+
 
