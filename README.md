@@ -23,6 +23,8 @@ RETURNS – Tabuľka, ktorá uchováva výnosy portfólia a jeho benchmarku za j
 
 1.1 Dátová architektúra
 ERD diagram
+<img width="1333" height="1329" alt="ERD" src="https://github.com/user-attachments/assets/98b5f7e2-85f7-4551-98b8-e78a93c32fa6" />
 
 Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na entitno-relačnom diagrame (ERD):
 2. Dimenzionálny model
+
