@@ -37,6 +37,18 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na ent
 
 ---
 ## **2. Dimenzionálny model**
+
+V projekte bola navrhnutá schéma hviezdy (star schema) podľa Kimballovej metodológie, ktorá obsahuje jednu faktovú tabuľku Fact_table, prepojenú s viacerými dimenzionálnymi tabuľkami. Tento model umožňuje efektívnu analytiku výkonnosti, expozícií a atribúcie finančných portfólií.
+Faktová tabuľka je prepojená s nasledujúcimi dimenziami:
+- dim_account - Obsahuje základné informácie o investičných účtoch a portfóliách, ako sú identifikátor účtu, názov účtu, základná mena, benchmark a dátum vzniku portfólia. Táto dimenzia umožňuje analyzovať výkonnosť podľa jednotlivých portfólií.
+- dim_date - Zahŕňa kalendárne informácie o dátumoch, ku ktorým sa viažu jednotlivé metriky, ako sú deň, mesiac, rok a štvrťrok. Dimenzia umožňuje časové analýzy a sledovanie vývoja výkonnosti v čase.
+- dim_asset_class - Obsahuje informácie o triede aktív, napríklad akcie (EQ) alebo dlhopisy (FI). Táto dimenzia umožňuje porovnávať výkonnosť a expozície medzi rôznymi typmi finančných nástrojov.
+- dim_sector - Obsahuje sektorové a hierarchické členenie investícií, vrátane názvu sektora, nadradeného sektora a úrovne v hierarchii. Dimenzia umožňuje sektorovú analýzu portfólia a benchmarku.
+- dim_security - Obsahuje detailné informácie o jednotlivých cenných papieroch, ako sú názov, symbol a identifikátory cenných papierov. Táto dimenzia umožňuje analýzu výkonnosti na úrovni konkrétnych investícií.
+- dim_measure_type - Definuje typy meraných metrík, ako sú výnosy, váhy alebo atribučné efekty (napr. alokačný alebo selekčný efekt). Táto dimenzia určuje význam číselných hodnôt uložených vo faktovej tabuľke.
+
+Štruktúra hviezdicového modelu je znázornená na ER diagrame, ktorý zobrazuje prepojenia medzi faktovou tabuľkou a jednotlivými dimenziami. Takýto návrh zjednodušuje dotazovanie, zlepšuje výkon analytických dotazov a umožňuje flexibilné rozširovanie modelu o ďalšie metriky alebo dimenzie.
+
 <img width="1073" height="714" alt="Star_scheme" src="https://github.com/user-attachments/assets/773ca867-9f16-41b9-9b7c-015b0f0f0def" />
 ---
 ## **3. ELT proces v Snowflake**
