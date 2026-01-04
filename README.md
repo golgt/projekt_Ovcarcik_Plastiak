@@ -37,7 +37,7 @@ Surové dáta sú usporiadané v relačnom modeli, ktorý je znázornený na ent
 
 ---
 ## **2. Dimenzionálny model**
-
+<img width="1073" height="714" alt="Star_scheme" src="https://github.com/user-attachments/assets/773ca867-9f16-41b9-9b7c-015b0f0f0def" />
 ---
 ## **3. ELT proces v Snowflake**
 
