@@ -291,7 +291,146 @@ DROP TABLE IF EXISTS PA_METADATA_STAGING;
 DROP TABLE IF EXISTS RETURNS_STAGING;
 ```
 
+---
 ## **4. Vyzualizácia dát**
  
+Dashboard obsahuje 7 vizualizácií ktoré poskytujú prehľad o ektorovej alokácii portfólia, jej porovnaní s benchmarkom a príspevku jednotlivých sektorov k celkovej výkonnosti portfólia. Cieľom dashboardu je identifikovať kľúčové sektory ovplyvňujúce výkonnosť, analyzovať alokáciu portfólia obroti benchmarku.  Využíva hviezdicovú (star) schému dátového modelu, kde faktovú tabuľku fact_portfolio_analytics dopĺňajú dimenzie sektorov, tried aktív, typov metrík a účtov.
 
+<p align="center">
+  <img width="1333" height="1329" alt="ERD" src="https://github.com/golgt/projekt_Ovcarcik_Plastiak/blob/main/img/dashboard1.png" alt="Dashboard obr.1"/>
+  <br>
+  <em>Obrázok 3 Dashboard FactSet Analytics 1</em>
+</p>
+<p align="center">
+  <img width="1333" height="1329" alt="ERD" src="https://github.com/golgt/projekt_Ovcarcik_Plastiak/blob/main/img/dashboard2.png" alt="Dashboard obr.2"/>
+  <br>
+  <em>Obrázok  Dashboard FactSet Analytics 2</em>
+</p>
 
+  
+---
+### **Graf 1: Príspevok sektorov k výkonnosti portfólia (Total Effect)**
+
+Táto vizualizácia zobrazuje celkový príspevok jednotlivých sektorov k výkonnosti portfólia, rozdelený podľa aktív(EQ/FI). Graf identifikuje sektory, ktoré najviac pozitívne alebo negatívne prispievajú k celkovej výkonnosti portfólia a umožnuje porovnanie medzi akciovou a dlhopisovou zložkou.
+
+**Príklad kódu:**
+```sql
+SELECT
+    ds.grouping_name AS sector,
+    dac.asset_class_name,
+    SUM(f.metric_value) AS total_effect
+FROM fact_portfolio_analytics f
+JOIN dim_sector ds ON f.sector_id = ds.sector_id
+JOIN dim_asset_class dac ON f.asset_class_id = dac.asset_class_id
+JOIN dim_measure_type dmt ON f.measure_type_id = dmt.measure_type_id
+WHERE dmt.measure_name = 'TOTAL_EFFECT'
+GROUP BY ds.grouping_name, dac.asset_class_name;
+```
+
+---
+### **Graf 2: Váhy sektorov v portfóliu**
+
+Táto vizualizácia zobrazuje rozdelenie váh portfólia medzi jednotlivé sektory. Graf poskytuje rýchly prehľad o tom, ktoré sektory majú v portfóliu najväčšie zastúpenie a ktoré sú marginálne.
+
+**Príklad kódu:**
+```sql
+SELECT s.grouping_name AS sector, SUM(f.metric_value) AS portfolio_weight
+FROM fact_portfolio_analytics f JOIN dim_sector s
+ON f.sector_id = s.sector_id
+JOIN  dim_measure_type m ON f.measure_type_id = m.measure_type_id
+WHERE m.measure_name = 'PORT_WEIGHT'
+GROUP BY s.grouping_name
+ORDER BY portfolio_weight DESC;
+```
+
+---
+### **Graf 3: Sektorová expozíca a sektorový efekt**
+
+Táto vizualizácia zobrazuje vsťah medzi váhou sektora v portfóliu a jeho príspevkom k výkonnosti. Graf umožňuje identifikovať sektory s vysokou váhou a pozitívnym efektom(silné sektory), sektory s vysokou váhou a negatívnym efektom(rizikové sektory), sektory s nízkou váhou, ale vysokým efektom(potenciál na navýšenie alokácie).
+
+**Príklad kódu:**
+```sql
+SELECT 
+s.grouping_name AS sector, SUM(CASE WHEN m.measure_name = 'PORT_WEIGHT' THEN f.metric_value END) AS portfolio_weight,
+SUM(CASE WHEN m.measure_name = 'TOTAL_EFFECT' THEN f.metric_value END) AS total_effect
+FROM fact_portfolio_analytics f
+JOIN dim_sector s ON f.sector_id = s.sector_id
+JOIN dim_measure_type m ON f.measure_type_id = m.measure_type_id
+GROUP BY s.grouping_name;
+```
+
+---
+### **Graf 4: Kombinované porovnanie účtov(váha + efekt)**
+
+Táto vizualizácia zobrazuje porovnanie sektorových váh a ich vplyvu na výkonnosť nedzi rôznymi účtami/portfóliami. Graf umožnuje porovnať rozdiely v alokácií a výkonnosti sektorov medzi viacerými portfóliami a identifikovať rozdielne investičné stratégie.
+
+**Príklad kódu:**
+```sql
+SELECT
+    f.account_id,
+    s.grouping_name AS sector,
+    SUM(CASE WHEN f.measure_type_id = 3 THEN f.metric_value END) AS portfolio_weight,
+    SUM(CASE WHEN f.measure_type_id = 5 THEN f.metric_value END) AS total_effect
+FROM fact_portfolio_analytics f
+JOIN dim_sector s ON f.sector_id = s.sector_id
+GROUP BY f.account_id, s.grouping_name
+ORDER BY s.grouping_name, f.account_id;
+```
+
+---
+### **Graf 5: Celkový vplyv podľa sektora**
+
+Táto vizualizácia zobrazuje agregovaný príspevok každého sektora k výkonnosti portfólia bez rozlíšenia tried aktív. Graf zvýrazňuje sektory s najväčším pozitívnym alebo negatívnym dopadom na celkový výkon portfólia.
+
+**Príklad kódu:**
+```sql
+SELECT 
+s.grouping_name AS sector,
+SUM(f.metric_value) AS total_effect
+FROM fact_portfolio_analytics f
+JOIN dim_sector s ON f.sector_id = s.sector_id
+JOIN dim_measure_type m ON f.measure_type_id = m.measure_type_id
+WHERE m.measure_name = 'TOTAL_EFFECT'
+GROUP BY s.grouping_name
+ORDER BY total_effect DESC;
+
+```
+
+---
+### **Graf 6: Weight vs Effect**
+
+Táto vizualizácia zobrazuje  priame porovnanie váhy sektora a jeho výkonnostného efektu. Graf vizualizuje efektívnosť alokácie - či sektory s vyššou váhou prinášajú adekvátny výnos.
+
+**Príklad kódu:**
+```sql
+SELECT ds.grouping_name AS sector,
+    SUM(CASE WHEN dmt.measure_name = 'PORT_WEIGHT' THEN f.metric_value END) AS port_weight,
+    SUM(CASE WHEN dmt.measure_name = 'TOTAL_EFFECT' THEN f.metric_value END) AS total_effect
+FROM fact_portfolio_analytics f
+JOIN dim_measure_type dmt ON f.measure_type_id = dmt.measure_type_id
+JOIN dim_sector ds ON f.sector_id = ds.sector_id
+GROUP BY ds.grouping_name;
+```
+
+---
+### **Graf 7: Porovnanie sektorových váh portfólia a benchmarku**
+
+Táto vizualižácia zobrazuje porovnanie váh sektorov v portfóliu a benchmarku. Graf identifikuje overweight sektory(portfólio > benchmark), underweight sektory (portfólio < benchmark), čo je kľúčové pre riadenie aktívneho rizika.
+
+**Príklad kódu:**
+
+```sql
+SELECT ds.grouping_name as sector,
+    SUM(CASE WHEN dmt.measure_name = 'PORT_WEIGHT' THEN f.metric_value END) AS portfolio_weight,
+    SUM(CASE WHEN dmt.measure_name = 'BENCH_WEIGHT' THEN f.metric_value END) AS benchmark_weight
+FROM fact_portfolio_analytics f
+JOIN dim_measure_type dmt ON f.measure_type_id = dmt.measure_type_id
+JOIN dim_sector ds ON f.sector_id = ds.sector_id
+WHERE dmt.measure_name IN ('PORT_WEIGHT', 'BENCH_WEIGHT')
+GROUP BY ds.grouping_name
+ORDER BY ds.grouping_name;
+```
+
+---
+**Autor:** Martin Ovcarčík, Alex Plaštiak
+---
