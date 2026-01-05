@@ -91,7 +91,207 @@ SELECT * FROM pa_metadata_staging LIMIT 15;;
 ```
 
 ---
+### **3.3 Transform (Transformácia dát)**
 
+Transform - je fáza v ELT procese ktorá predstavuje spracovanie, čistenie a modelovanie dát priamo v databáze po ich nahraní do *raw/staging vrstvy*. Cieľom tejto fázy je pripraviť dáta do štruktúry vhodnej na analytické spracovanie a reporting. V tejto fáze sa vytvárajú dimenzionálne tabuľky a tabuľka faktov.
 
+Dimenzie boli navrhnuté tak aby poskytovali kontext pre tabuľku faktov. Dimenzionálna tabuľka `dim_date` predstavuje časovú dimenziu, ktorá slúžia na analízu dát v čase a umožnuje agregáciu metrík na rôznych časových úrovniach, ako sú deň, mesiac alebo rok. Je vytvorená spojením všetkých dátumových hodnôt zo staging vrstvy a poskytuje jetnotný časový kontext pre tabuľku faktov.
+
+#### **Štruktúra dimenzie**
+
+Dimenzia obsahuje:
+- `date_id` - technický identifikátor dátumu vo formáte **YYYYMMDD**
+- `full_date` - skutočná dátumová hodnota
+- `year`, `month` - údaje o roku a mesiaci
+Tieto atribúty sú odvodené priamo z dátumovej hodnoty a nemenia svoj význam v čase.
+
+V transformačnej fáze ELT procesu sú zhromaždené všetky unikátne dátumy zo zdrojových tabuliek. Všetky dátumy sa konvertovali na jednotný dátový formát typu `DATE`. Pre každý kalendárny de§ň sa vytvoril jeden záznam a odstránili sa všetky NULL hodnoty.
+
+#### **SCD v dim_date**
+
+Dimenzionálna tabuľka `dim_date` je navrhnutá ako **SCD Type 0** čiže je to nemenná dimenzia. SCD 0 Je to pretože dátum nemení svoj význam, rok, mesiac, deň sú pevne dané, historizácia zmien nemá zmysel. Z tohto dôvodu slúži ako stabilná referenčná dimenzia.
+
+**Príklad kódu:**
+
+```sql
+CREATE OR REPLACE TABLE dim_date AS
+SELECT DISTINCT 
+    TO_NUMBER(TO_CHAR(date_col,'YYYYMMDD')) AS date_id,
+    date_col AS full_date,
+    YEAR(date_col) AS year,
+    MONTH(date_col) AS month
+FROM (
+    SELECT CAST(calculation_date AS DATE) AS date_col FROM returns_staging
+    UNION
+    SELECT CAST(date AS DATE) FROM eq_sector_exposures_staging
+    UNION
+    SELECT CAST(date AS DATE) FROM fi_sector_exposures_staging
+    UNION
+    SELECT CAST(startdate AS DATE) FROM eq_sector_attribution_staging
+    UNION
+    SELECT CAST(startdate AS DATE) FROM fi_sector_attribution_staging
+) t
+WHERE date_col IS NOT NULL;
+```
+
+Dimenzia `dim_sector` reprezentuje sektorovú klasifikáciu finančných nástrojov a slúži ako popisná dimenzia pre analytické hondotenie výkonnosti a alokácie portfólia. Poskytuje hierarchycký pohľad na sektory a umožnuje agregáciu metrík na rôznych úrovniach sektorovej štruktúry.
+
+Dimenzia je vytvorená spojením sektorových údajov z dvoch staging tabuliek -- `EQ_SECTOR_EXPOSURES_STAGING` (equity aktíva), `FI_SECTOR_EXPOSURES_STAGING` (fixed income aktíva). Tieto zdroje sú zlúčené pomocou **UNION**, čím sa zabezpečí jednotná sektorová klasifikácia naprieč celým portfóliom. Použitím **SELECT DISTINCT** sú odstránené duplicitné záznamy a je zachovaná jednoznačnosť sektorových kombinácií.   
+
+#### **Štruktúra dimenzie**
+
+Dimenzia obsahuje:
+- `sector_id` - surrogate kľúč generovaný v dátovom sklade,
+- `grouping_name` - názov sektoru,
+- `parent_groupings` - nadradený sektor v hierarchií,
+- `grouping_hierarchy` - identifikátor sektorovej hierarchie,
+- `level`, `level2` - úrovne sektorovej klasifikácie,
+- `valid_from`, `valid_to` -- technická platnosť záznamu,
+- `is_current` - príznak aktuálnej verzie záznamu.
+
+#### **SCD v dim_sector**
+
+Dimenzionálna tabuľka `dim_sector` je navrhnutá ako **SCD Type 2** pretože sektorová klasifikácia sa v čase môže mieniť (reklasifikácie, zmena hierarchie), historická konzistentnosť analytických výstupov je kľúčová a každá zmena sektorových atribútov je reprezentovaná novým záznamom. V aktuálnej implementácií sú všetky záznamy vložené ako aktuálne (*is_current = TRUE*) s platnosťou (*valid_to = '2027-2-28'*). Návrh je pripravený na historizáciu zmien bez zásahu do faktových dát.
+
+**Príklad kódu:**
+```sql
+CREATE OR REPLACE TABLE dim_sector AS
+SELECT DISTINCT
+    ROW_NUMBER() OVER (ORDER BY groupingname) AS sector_id,
+    groupingname AS grouping_name,
+    parentgrouping AS parent_grouping,
+    groupinghierarchy AS grouping_hierarchy,
+    level,
+    level2,
+    CURRENT_DATE() AS valid_from,
+    '2027-2-28' AS valid_to,
+    TRUE AS is_current
+FROM (
+    SELECT groupingname, parentgrouping, groupinghierarchy, level, level2
+    FROM eq_sector_exposures_staging
+    UNION
+    SELECT groupingname, parentgrouping, groupinghierarchy, level, level2
+    FROM fi_sector_exposures_staging
+);
+```
+Faktová tabuľka `fact_portfolio_analytics` ukladá *meratelné hodnoty*(metrics) preportfólia. Každý riadok predstavuje **jednu konkrétnu metriku** pre:
+- konkrétny účet
+- konkrétny dátum
+- konkrétny sektor
+- konkrétnu asset class
+- konkrétny typ merania(measure type)
+
+Tabuľka reprezentuje jednu metriku pre jeden účet, v jeden deň, pre jeden sektor, pre jednu asset class, pre jeden measure type.
+
+**Príklad kódu:**
+```sql
+CREATE OR REPLACE TABLE fact_portfolio_analytics (
+    fact_id INT AUTOINCREMENT PRIMARY KEY,
+    account_id VARCHAR(50),
+    date_id INT,
+    sector_id INT,
+    asset_class_id INT,
+    measure_type_id INT,
+    metric_value FLOAT
+);
+```
+
+Do tabuľky sme vložili dva rôzne typy metriky pre rovnakú granularitu:
+- **PORT_WEIGHT**
+- **TOTAL_EFFECT**
+
+#### **Insert PORT_WEIGHT**
+
+```sql
+FROM eq_sector_exposures_staging e
+```
+
+Toto je typicý *exposure fact*:
+- `port_weight` - váha sektora v portfóliu
+- asset_class_id - 1(Equity)
+- measure_type_id - 3(PORT_WEIHGT)
+
+Každý riadok hovorí „V teno deň mal účet X v sektore Y váhu Z %.“ 
+
+**Príklad kódu:***
+```sql
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    e.acct AS account_id,
+    d.date_id,
+    s.sector_id,
+    1 AS asset_class_id,              -- EQ
+    3 AS measure_type_id,             -- PORT_WEIGHT
+    e.port_weight AS metric_value
+FROM eq_sector_exposures_staging e
+JOIN dim_date d
+    ON d.full_date = CAST(e.date AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = e.groupingname
+WHERE e.port_weight IS NOT NULL;
+```
+
+#### **Insert TOTAL_EFFECT**
+
+```sql
+FROM eq_sector_attribution_staging a
+```
+
+Toto je *attribution fact*:
+- `total_effect` - efekt sektora na výkonnosť portfólia
+- asset_class_id - 1(Equity)
+- measure_type_id - 5(TOTAL_EFFECT)
+
+Každý riadok hovorí „V teno deň mal sektor Y efekt Z na výkonnosť účtu X.“ 
+
+**Príklad kódu:**
+```sql
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    a.acct,
+    d.date_id,
+    s.sector_id,
+    1,                               -- EQ
+    5,                               -- TOTAL_EFFECT
+    a.total_effect
+FROM eq_sector_attribution_staging a
+JOIN dim_date d
+    ON d.full_date = CAST(a.startdate AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = a.groupingname
+WHERE a.total_effect IS NOT NULL;
+```
+
+Po úspešnom vytvorení dimenzií a faktovej tabuľky boli dáta nahraté do finálnej štruktúry. Na záver boli staging tabuľky odstránené aby sa optimalizovalo využitie úložiska:
+
+**Príklad kódu:**
+```sql
+DROP TABLE IF EXISTS CHARACTERISTICS_STAGING;
+DROP TABLE IF EXISTS EQ_SECTOR_ATTRIBUTION_STAGING;
+DROP TABLE IF EXISTS EQ_SECTOR_EXPOSURES_STAGING;
+DROP TABLE IF EXISTS FI_SECTOR_ATTRIBUTION_STAGING;
+DROP TABLE IF EXISTS FI_SECTOR_EXPOSURES_STAGING;
+DROP TABLE IF EXISTS HOLDINGS_STAGING;
+DROP TABLE IF EXISTS METADATA_WEIGHTS_EXAMPLE_STAGING;
+DROP TABLE IF EXISTS PA_METADATA_STAGING;
+DROP TABLE IF EXISTS RETURNS_STAGING;
+```
+
+## **4. Vyzualizácia dát**
+ 
 
 
