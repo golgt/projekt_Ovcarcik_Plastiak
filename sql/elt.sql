@@ -201,6 +201,161 @@ JOIN dim_sector s
     ON s.grouping_name = a.groupingname
 WHERE a.total_effect IS NOT NULL;
 
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    e.acct AS account_id,
+    d.date_id,
+    s.sector_id,
+    1 AS asset_class_id,          -- EQ
+    4 AS measure_type_id,         -- BENCH_WEIGHT
+    e.bench_weight AS metric_value
+FROM eq_sector_exposures_staging e
+JOIN dim_date d
+    ON d.full_date = CAST(e.date AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = e.groupingname
+WHERE e.bench_weight IS NOT NULL;
+
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    a.acct,
+    d.date_id,
+    s.sector_id,
+    1,                           -- EQ
+    6,                           -- ALLOCATION_EFFECT
+    a.allocation_effect__local_ AS metric_value
+FROM eq_sector_attribution_staging a
+JOIN dim_date d
+    ON d.full_date = CAST(a.startdate AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = a.groupingname
+WHERE a.allocation_effect__local_ IS NOT NULL;
+
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    a.acct,
+    d.date_id,
+    s.sector_id,
+    1,                           -- EQ
+    7,                           -- SELECTION_EFFECT
+    a.selection_plus_interaction__local_ AS metric_value
+FROM eq_sector_attribution_staging a
+JOIN dim_date d
+    ON d.full_date = CAST(a.startdate AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = a.groupingname
+WHERE a.selection_plus_interaction__local_ IS NOT NULL;
+
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    f.acct,
+    d.date_id,
+    s.sector_id,
+    2 AS asset_class_id,          -- FI
+    3 AS measure_type_id,         -- PORT_WEIGHT
+    f.port_weight
+FROM fi_sector_exposures_staging f
+JOIN dim_date d
+    ON d.full_date = CAST(f.date AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = f.groupingname
+WHERE f.port_weight IS NOT NULL;
+
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    f.acct,
+    d.date_id,
+    s.sector_id,
+    2,                           -- FI
+    4,                           -- BENCH_WEIGHT
+    f.bench_weight
+FROM fi_sector_exposures_staging f
+JOIN dim_date d
+    ON d.full_date = CAST(f.date AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = f.groupingname
+WHERE f.bench_weight IS NOT NULL;
+
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    a.acct,
+    d.date_id,
+    s.sector_id,
+    2,                           -- FI
+    5,                           -- TOTAL_EFFECT
+    a.total_effect
+FROM fi_sector_attribution_staging a
+JOIN dim_date d
+    ON d.full_date = CAST(a.startdate AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = a.groupingname
+WHERE a.total_effect IS NOT NULL;
+
+INSERT INTO fact_portfolio_analytics (
+    account_id,
+    date_id,
+    sector_id,
+    asset_class_id,
+    measure_type_id,
+    metric_value
+)
+SELECT
+    a.acct,
+    d.date_id,
+    s.sector_id,
+    2,                           -- FI
+    6,                           -- ALLOCATION_EFFECT
+    a.allocation_effect__local_
+FROM fi_sector_attribution_staging a
+JOIN dim_date d
+    ON d.full_date = CAST(a.startdate AS DATE)
+JOIN dim_sector s
+    ON s.grouping_name = a.groupingname
+WHERE a.allocation_effect__local_ IS NOT NULL;
+
+
 DROP TABLE IF EXISTS CHARACTERISTICS_STAGING;
 DROP TABLE IF EXISTS EQ_SECTOR_ATTRIBUTION_STAGING;
 DROP TABLE IF EXISTS EQ_SECTOR_EXPOSURES_STAGING;
